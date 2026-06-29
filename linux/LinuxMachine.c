@@ -141,6 +141,7 @@ static void LinuxMachine_scanMemoryInfo(LinuxMachine* this) {
    memory_t sreclaimableMem = 0;
    memory_t zswapCompMem = 0;
    memory_t zswapOrigMem = 0;
+   memory_t anonHugePageMem = 0;
 
    FILE* file = fopen(PROCMEMINFOFILE, "r");
    if (!file)
@@ -159,6 +160,9 @@ static void LinuxMachine_scanMemoryInfo(LinuxMachine* this) {
          } else (void) 0 /* Require a ";" after the macro use. */
 
       switch (buffer[0]) {
+         case 'A':
+            tryRead("AnonHugePages:", anonHugePageMem);
+            break;
          case 'M':
             tryRead("MemAvailable:", availableMem);
             tryRead("MemFree:", freeMem);
@@ -216,6 +220,12 @@ static void LinuxMachine_scanMemoryInfo(LinuxMachine* this) {
    host->cachedSwap = swapCacheMem;
    this->zswap.usedZswapComp = zswapCompMem;
    this->zswap.usedZswapOrig = zswapOrigMem;
+   /*
+    * Transparent huge pages (AnonHugePages) are reported separately. They are
+    * already accounted for within used/shared/cache memory, so they are kept
+    * out of usedMem and the hugetlb pool totals to avoid double-counting.
+    */
+   this->anonHugePageMem = anonHugePageMem;
 }
 
 static void LinuxMachine_scanHugePages(LinuxMachine* this) {

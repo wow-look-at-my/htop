@@ -92,6 +92,7 @@ typedef struct LinuxMachine_ {
 
    memory_t totalHugePageMem;
    memory_t usedHugePageMem[HTOP_HUGEPAGE_COUNT];
+   memory_t anonHugePageMem;   /* AnonHugePages (transparent huge pages); not part of the hugetlb pool */
 
    unsigned long long int prevGpuTime, curGpuTime;  /* total absolute GPU time in nano seconds */
    GPUEngineData* gpuEngineData;

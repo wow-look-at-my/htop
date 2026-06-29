@@ -76,6 +76,7 @@ static void HugePageMeter_updateValues(Meter* this) {
 static void HugePageMeter_display(const Object* cast, RichString* out) {
    char buffer[50];
    const Meter* this = (const Meter*)cast;
+   const LinuxMachine* host = (const LinuxMachine*) this->host;
 
    RichString_writeAscii(out, CRT_colors[METER_TEXT], ":");
    Meter_humanUnit(buffer, this->total, sizeof(buffer));
@@ -88,6 +89,17 @@ static void HugePageMeter_display(const Object* cast, RichString* out) {
       RichString_appendAscii(out, CRT_colors[METER_TEXT], HugePageMeter_active_labels[i]);
       Meter_humanUnit(buffer, this->values[i], sizeof(buffer));
       RichString_appendAscii(out, CRT_colors[HUGEPAGE_1 + i], buffer);
+   }
+
+   /*
+    * Transparent huge pages (AnonHugePages) are not part of the hugetlb pool and
+    * are already counted within used memory, so they are shown as a separate
+    * indicator rather than folded into the pool used/total above.
+    */
+   if (host->anonHugePageMem > 0) {
+      RichString_appendAscii(out, CRT_colors[METER_TEXT], " THP:");
+      Meter_humanUnit(buffer, host->anonHugePageMem, sizeof(buffer));
+      RichString_appendAscii(out, CRT_colors[HUGEPAGE_THP], buffer);
    }
 }
 
