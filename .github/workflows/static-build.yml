@@ -1,0 +1,87 @@
+name: Static Build
+
+# Builds a fully static (musl/Alpine) htop binary that is safe to run anywhere
+# and hard-fails if the resulting binary is not statically linked.
+
+on: [ push, pull_request ]
+
+permissions:
+  contents: read
+
+jobs:
+  static-alpine-musl:
+    name: Static binary (Alpine / musl)
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.20
+    steps:
+      # Install nodejs BEFORE checkout: the GitHub-runner-provided node is
+      # glibc-built and fails to run inside a musl (Alpine) container, which
+      # breaks actions/checkout and actions/upload-artifact. Installing the
+      # distro's musl-native nodejs makes the JS-based actions work.
+      - name: Install toolchain and dependencies
+        run: |
+          apk add --no-cache \
+            build-base \
+            autoconf \
+            automake \
+            python3 \
+            ncurses-dev \
+            ncurses-static \
+            linux-headers \
+            git \
+            nodejs \
+            tar
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Mark workspace as a safe git directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Bootstrap
+        run: ./autogen.sh
+
+      - name: Configure (static)
+        run: |
+          ./configure \
+            --enable-unicode \
+            --enable-static \
+            --disable-sensors \
+            --without-libcap \
+            LDFLAGS="-static" \
+            || ( cat config.log; exit 1; )
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Verify the binary is fully static
+        run: |
+          set -eu
+          echo "=== file ./htop ==="
+          file ./htop
+          echo "=== ldd ./htop ==="
+          # ldd returns non-zero for a non-dynamic executable; don't let that abort.
+          ldd ./htop || true
+          echo "=== checks ==="
+          if ldd ./htop 2>&1 | grep -q '=>'; then
+            echo "ERROR: htop is dynamically linked (found shared-library dependencies)"
+            exit 1
+          fi
+          if ! file ./htop | grep -q 'statically linked'; then
+            echo "ERROR: htop is not reported as statically linked by file(1)"
+            exit 1
+          fi
+          echo "OK: htop is fully static"
+
+      - name: Smoke test
+        run: ./htop --version
+
+      - name: Upload static binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: htop-static-musl-x86_64
+          path: ./htop
+          if-no-files-found: error
