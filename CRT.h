@@ -103,6 +103,7 @@ typedef enum ColorElements_ {
    HUGEPAGE_2,
    HUGEPAGE_3,
    HUGEPAGE_4,
+   HUGEPAGE_THP,
    LOAD,
    LOAD_AVERAGE_FIFTEEN,
    LOAD_AVERAGE_FIVE,
